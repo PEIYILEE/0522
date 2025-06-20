@@ -1,146 +1,289 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<meta charset="UTF-8">
-<title>選擇你想要的料理</title>
-<style>
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(4, 150px);
-    gap: 10px;
-    margin-top: 20px;
-  }
-  .item {
-    padding: 20px;
-    border: 2px solid gray;
-    text-align: center;
-    font-size: 18px;
-  }
-  .active {
-    border-color: red;
-    background-color: lightyellow;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>健康飲食選擇器</title>
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f0f2f5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .panel {
+      flex: 1;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .center-panel {
+      flex: 3;
+      padding: 30px 20px;
+      text-align: center;
+      overflow-y: auto;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 15px;
+      margin-top: 25px;
+      padding: 10px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .item {
+      padding: 15px;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      background-color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.05);
+    }
+    .item:hover {
+      transform: scale(1.03);
+      background-color: #f1f1f1;
+    }
+    .active {
+      border-color: #ff6b6b;
+      background-color: #fff3f3;
+      transform: scale(1.05);
+    }
+    #title {
+      font-size: 24px;
+    }
+    #selection {
+      font-size: 20px;
+      font-weight: bold;
+      margin-top: 20px;
+      color: #333;
+    }
+    #suggestion {
+      font-size: 18px;
+      margin-top: 15px;
+      padding: 12px;
+      background-color: #e8f5e9;
+      border-left: 5px solid #4caf50;
+      color: #2e7d32;
+      max-width: 700px;
+      margin: 20px auto 0;
+      white-space: pre-wrap;
+      border-radius: 6px;
+      display: none;
+    }
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+      margin-top: 100px;
+    }
+    .btn {
+      font-size: 20px;
+      padding: 15px 25px;
+      background-color: #fff;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100px;
+      text-align: center;
+    }
+    .btn:hover {
+      background-color: #fce4ec;
+      border-color: #ff4081;
+    }
+  </style>
 </head>
 <body>
-  <h1 id="title">選擇你想要的料理</h1>
-  <div id="menu" class="grid"></div>
-  <h2 id="selection"></h2>
-  <div id="suggestion" style="margin-top:20px; font-size:18px; color:green;"></div>
-
-<script defer>
+  <div class="panel">
+    <div class="btn-group">
+      <div class="btn" onclick="sendCommand('UP')">🔼 上</div>
+      <div class="btn" onclick="sendCommand('LEFT')">◀️ 左</div>
+      <div class="btn" onclick="sendCommand('RIGHT')">▶️ 右</div>
+      <div class="btn" onclick="sendCommand('DOWN')">🔽 下</div>
+    </div>
+  </div>
+  <div class="center-panel">
+    <h1 id="title">選擇你想要的料理</h1>
+    <div id="menu" class="grid"></div>
+    <h2 id="selection"></h2>
+    <div id="suggestion"></div>
+  </div>
+  <div class="panel">
+    <div class="btn-group">
+      <div class="btn" onclick="sendCommand('CONFIRM')">✔️ 確認</div>
+      <div class="btn" onclick="sendCommand('REJECT')">✖️ 取消</div>
+    </div>
+  </div>
+  <button id="toggleHistoryBtn" style="position: fixed; bottom: 20px; right: 20px; padding: 10px 16px; font-size: 16px; border: none; background-color: #6c757d; color: white; border-radius: 8px; cursor: pointer;">📜 查看歷史紀錄</button>
+  <div id="historyArea" style="position: fixed; bottom: 70px; right: 20px; width: 300px; max-height: 300px; overflow-y: auto; background-color: #fff; border: 1px solid #ccc; padding: 15px; font-size: 14px; border-radius: 10px; display: none; box-shadow: 0 0 8px rgba(0,0,0,0.2);">
+    <h4>📖 歷史選擇紀錄</h4>
+    <ul id="historyList" style="text-align: left; padding-left: 18px;"></ul>
+    <button onclick="clearHistory()" style="margin-top: 10px;">🧹 清除紀錄</button>
+  </div>
+<script>
 document.addEventListener('DOMContentLoaded', () => {
-const categories = {
-  "台式料理": ["滷肉飯", "蚵仔煎", "鹽酥雞"],
-  "日式料理": ["壽司", "拉麵", "定食"],
-  "韓式料理": ["石鍋拌飯", "烤肉", "泡菜鍋"],
-  "美式料理": ["漢堡", "牛排", "炸雞"],
-  "泰式料理": ["打拋豬", "綠咖哩", "月亮蝦餅"],
-  "越式料理": ["河粉", "春捲", "越式三明治"],
-  "義式料理": ["義大利麵", "披薩", "燉飯"],
-  "港式料理": ["燒臘", "港點", "腸粉"],
-  "中式料理": ["水煮魚", "宮保雞丁", "炒麵"],
-  "印尼料理": ["炒飯", "沙嗲", "牛肉湯"],
-  "菲律賓料理": ["燉豬肉", "烤雞", "酸湯"],
-  "印度料理": ["咖哩", "烤餅", "香料飯"],
-  "墨西哥料理": ["捲餅", "塔可", "玉米片"],
-  "蔬食料理": ["蔬菜盤", "植物肉", "素便當"],
-  "地中海料理": ["烤羊肉", "橄欖沙拉", "海鮮飯"],
-  "法式料理": ["可麗餅", "紅酒燉牛肉", "鵝肝醬"],
-  "西班牙料理": ["海鮮燉飯", "Tapas", "燒烤"],
-  "健康餐": ["低醣便當", "高蛋白雞胸", "沙拉"],
-  "甜點飲品": ["奶茶", "刨冰", "豆花"]
-};
-
-let menuLevel = 'main';
-let currentIndex = 0;
-let mainKeys = Object.keys(categories);
-let subKeys = [];
-let selectedCategory = "";
-
-function renderMenu(items) {
-  const menu = document.getElementById("menu");
-  menu.innerHTML = '';
-  items.forEach((item, index) => {
-    const div = document.createElement('div');
-    div.className = 'item' + (index === currentIndex ? ' active' : '');
-    div.innerText = item;
-    menu.appendChild(div);
-  });
-}
-
-function updateFocus(direction) {
-  const items = (menuLevel === 'main') ? mainKeys : subKeys;
-  const cols = 4;
-  const rows = Math.ceil(items.length / cols);
-  const x = currentIndex % cols;
-  const y = Math.floor(currentIndex / cols);
-
-  switch(direction) {
-    case 'LEFT': if (x > 0) currentIndex--; break;
-    case 'RIGHT': if (x < cols - 1) currentIndex++; break;
-    case 'UP': if (y > 0) currentIndex -= cols; break;
-    case 'DOWN': if (y < rows - 1) currentIndex += cols; break;
+    const categories = {
+      "台式料理": ["滷肉飯", "蚵仔煎", "鹽酥雞"],
+      "日式料理": ["壽司", "拉麵", "定食"],
+      "韓式料理": ["石鍋拌飯", "烤肉", "泡菜鍋"],
+      "美式料理": ["漢堡", "牛排", "炸雞"],
+      "泰式料理": ["打拋豬", "綠咖哩", "月亮蝦餅"],
+      "越式料理": ["河粉", "春捲", "越式三明治"],
+      "義式料理": ["義大利麵", "披薩", "燉飯"],
+      "港式料理": ["燒臘", "港點", "腸粉"],
+      "中式料理": ["水煮魚", "宮保雞丁", "炒麵"],
+      "印尼料理": ["炒飯", "沙嗲", "牛肉湯"],
+      "菲律賓料理": ["燉豬肉", "烤雞", "酸湯"],
+      "印度料理": ["咖哩", "烤餅", "香料飯"],
+      "墨西哥料理": ["捲餅", "塔可", "玉米片"],
+      "蔬食料理": ["蔬菜盤", "植物肉", "素便當"],
+      "地中海料理": ["烤羊肉", "橄欖沙拉", "海鮮飯"],
+      "法式料理": ["可麗餅", "紅酒燉牛肉", "鵝肝醬"],
+      "西班牙料理": ["海鮮燉飯", "Tapas", "燒烤"],
+      "健康餐": ["低醣便當", "高蛋白雞胸", "沙拉"],
+      "甜點飲品": ["奶茶", "刨冰", "豆花"]
+    };
+  let menuLevel = 'main';
+  let currentIndex = 0;
+  let mainKeys = Object.keys(categories);
+  let subKeys = [];
+  let selectedCategory = "";
+  function renderMenu(items) {
+    const menu = document.getElementById("menu");
+    menu.innerHTML = '';
+    if (menuLevel === 'main') items = [...mainKeys, "📜 查看歷史紀錄"];
+    items.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'item' + (index === currentIndex ? ' active' : '');
+      div.innerText = item;
+      menu.appendChild(div);
+    });
   }
+    function updateFocus(direction) {
+      let items = (menuLevel === 'main')
+        ? [...mainKeys, "📜 查看歷史紀錄"]
+        : subKeys;
 
-  if (currentIndex < 0) currentIndex = 0;
-  if (currentIndex >= items.length) currentIndex = items.length - 1;
-  renderMenu(items);
-}
+      const menu = document.getElementById("menu");
+      const firstItem = menu.querySelector(".item");
+      const itemWidth = firstItem ? firstItem.offsetWidth : 150;
+      const menuWidth = menu.offsetWidth;
+      const cols = Math.floor(menuWidth / (itemWidth + 15)); // +gap
+      const total = items.length;
+      const maxIndex = total - 1;
 
-function confirmSelection() {
-  if (menuLevel === 'main') {
-    selectedCategory = mainKeys[currentIndex];
-    subKeys = categories[selectedCategory];
-    currentIndex = 0;
-    menuLevel = 'sub';
-    document.getElementById("title").innerText = `請選擇 ${selectedCategory} 子分類`;
-    renderMenu(subKeys);
-  } else if (menuLevel === 'sub') {
-    const selectedSub = subKeys[currentIndex];
-    document.getElementById("selection").innerText = `你選擇的是：${selectedCategory} → ${selectedSub}`;
-    ws.send(JSON.stringify({ category: selectedCategory, sub: selectedSub }));
+      switch (direction) {
+        case 'LEFT':
+          if (currentIndex % cols > 0) currentIndex--;
+          break;
+        case 'RIGHT':
+          if (currentIndex % cols < cols - 1 && currentIndex < maxIndex) currentIndex++;
+          break;
+        case 'UP':
+          if (currentIndex - cols >= 0) currentIndex -= cols;
+          break;
+        case 'DOWN':
+          if (currentIndex + cols <= maxIndex) {
+            currentIndex += cols;
+          } else if (currentIndex < maxIndex) {
+            currentIndex = maxIndex;  // 移到最後一格
+          }
+          break;
+      }
+
+      renderMenu(items);
+    }
+
+
+
+  function confirmSelection() {
+    if (menuLevel === 'main') {
+      if (currentIndex === mainKeys.length) return toggleHistory();
+      selectedCategory = mainKeys[currentIndex];
+      subKeys = categories[selectedCategory];
+      currentIndex = 0;
+      menuLevel = 'sub';
+      document.getElementById("title").innerText = `請選擇 ${selectedCategory} 子分類`;
+      renderMenu(subKeys);
+    } else if (menuLevel === 'sub') {
+      const selectedSub = subKeys[currentIndex];
+      document.getElementById("selection").innerText = `你選擇的是：${selectedCategory} → ${selectedSub}`;
+      document.getElementById("suggestion").innerText = "請稍候...";
+      document.getElementById("suggestion").style.display = "block";
+      ws.send(JSON.stringify({ category: selectedCategory, sub: selectedSub }));
+      saveToHistory(selectedCategory, selectedSub);
+    }
   }
-}
-
-function rejectSelection() {
-  if (menuLevel === 'sub') {
-    menuLevel = 'main';
-    currentIndex = 0;
-    document.getElementById("title").innerText = `選擇你想要的料理`;
-    document.getElementById("suggestion").innerText = '';
-    document.getElementById("selection").innerText = '';
-    renderMenu(mainKeys);
-  } else {
-    document.getElementById("selection").innerText = `請重新選擇`;
+  function rejectSelection() {
+    if (menuLevel === 'sub') {
+      menuLevel = 'main';
+      currentIndex = 0;
+      document.getElementById("title").innerText = `選擇你想要的料理`;
+      document.getElementById("selection").innerText = '';
+      document.getElementById("suggestion").innerText = '';
+      document.getElementById("suggestion").style.display = "none";
+      renderMenu(mainKeys);
+    } else {
+      document.getElementById("selection").innerText = `請重新選擇`;
+    }
   }
-}
-
-let ws = new WebSocket("ws://localhost:8000/ws");
-
-ws.onopen = () => {
-  console.log("✅ WebSocket 連線成功！");
-};
-
-ws.onerror = (error) => {
-  console.error("❌ WebSocket 錯誤：", error);
-};
-
-ws.onmessage = (event) => {
-  const command = event.data;
-  console.log("💬 收到指令：", command);
-  if (["UP", "DOWN", "LEFT", "RIGHT"].includes(command)) {
-    updateFocus(command);
-  } else if (command === 'CONFIRM') {
-    confirmSelection();
-  } else if (command === 'REJECT') {
-    rejectSelection();
-  } else {
-    document.getElementById("suggestion").innerText = command;
+  function sendCommand(cmd) {
+    ws.send(cmd);
   }
-};
-
-renderMenu(mainKeys);
+  function saveToHistory(category, sub) {
+    const history = JSON.parse(localStorage.getItem("foodHistory") || "[]");
+    const time = new Date().toLocaleString();
+    history.unshift({ category, sub, time });
+    localStorage.setItem("foodHistory", JSON.stringify(history));
+  }
+  function renderHistory() {
+    const list = document.getElementById("historyList");
+    list.innerHTML = '';
+    const history = JSON.parse(localStorage.getItem("foodHistory") || "[]");
+    if (history.length === 0) {
+      list.innerHTML = "<li>尚無紀錄</li>";
+      return;
+    }
+    for (let item of history) {
+      const li = document.createElement("li");
+      li.textContent = `${item.time}：${item.category} → ${item.sub}`;
+      list.appendChild(li);
+    }
+  }
+  function clearHistory() {
+    localStorage.removeItem("foodHistory");
+    renderHistory();
+  }
+  function toggleHistory() {
+    const area = document.getElementById("historyArea");
+    const btn = document.getElementById("toggleHistoryBtn");
+    if (area.style.display === "block") {
+      area.style.display = "none";
+      btn.innerText = "📜 查看歷史紀錄";
+    } else {
+      renderHistory();
+      area.style.display = "block";
+      btn.innerText = "🙈 隱藏歷史紀錄";
+    }
+  }
+  document.getElementById("toggleHistoryBtn").onclick = toggleHistory;
+  let ws = new WebSocket("ws://localhost:8000/ws");
+  ws.onmessage = (event) => {
+    const command = event.data;
+    if (["UP", "DOWN", "LEFT", "RIGHT"].includes(command)) updateFocus(command);
+    else if (command === 'CONFIRM') confirmSelection();
+    else if (command === 'REJECT') rejectSelection();
+    else {
+      document.getElementById("suggestion").innerText = command;
+      document.getElementById("suggestion").style.display = "block";
+    }
+  };
+  renderMenu(mainKeys);
 });
 </script>
 </body>

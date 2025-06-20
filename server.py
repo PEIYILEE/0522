@@ -5,11 +5,11 @@ from typing import Optional
 import json
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from openai import OpenAI  # ✅ 使用新版 OpenAI SDK 建立 client
 
-# === 環境變數 ===
+# === 載入環境變數並建立 OpenAI 客戶端 ===
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # ✅ 新版語法
 
 # === Serial 連線 ===
 ser = serial.Serial('COM4', 9600)
@@ -27,9 +27,11 @@ async def ask_openai(category: str, sub: str) -> str:
         f"我今天想吃「{category}」的「{sub}」，請你提供兩段回覆："
         f"\n1. 健康建議：簡單說明如何吃得更健康。"
         f"\n2. 卡路里：估算這道料理平均會有多少大卡。"
+        
+        
     )
     try:
-        response = client.chat.completions.create(
+        response = client.chat.completions.create(  # ✅ 新版 SDK 呼叫方式
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
