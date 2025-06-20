@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>選擇你想要的料理</title>
+<style>
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 150px);
+    gap: 10px;
+    margin-top: 20px;
+  }
+  .item {
+    padding: 20px;
+    border: 2px solid gray;
+    text-align: center;
+    font-size: 18px;
+  }
+  .active {
+    border-color: red;
+    background-color: lightyellow;
+  }
+</style>
+</head>
+<body>
+  <h1 id="title">選擇你想要的料理</h1>
+  <div id="menu" class="grid"></div>
+  <h2 id="selection"></h2>
+  <div id="suggestion" style="margin-top:20px; font-size:18px; color:green;"></div>
+
+<script defer>
+document.addEventListener('DOMContentLoaded', () => {
+const categories = {
+  "台式料理": ["滷肉飯", "蚵仔煎", "鹽酥雞"],
+  "日式料理": ["壽司", "拉麵", "定食"],
+  "韓式料理": ["石鍋拌飯", "烤肉", "泡菜鍋"],
+  "美式料理": ["漢堡", "牛排", "炸雞"],
+  "泰式料理": ["打拋豬", "綠咖哩", "月亮蝦餅"],
+  "越式料理": ["河粉", "春捲", "越式三明治"],
+  "義式料理": ["義大利麵", "披薩", "燉飯"],
+  "港式料理": ["燒臘", "港點", "腸粉"],
+  "中式料理": ["水煮魚", "宮保雞丁", "炒麵"],
+  "印尼料理": ["炒飯", "沙嗲", "牛肉湯"],
+  "菲律賓料理": ["燉豬肉", "烤雞", "酸湯"],
+  "印度料理": ["咖哩", "烤餅", "香料飯"],
+  "墨西哥料理": ["捲餅", "塔可", "玉米片"],
+  "蔬食料理": ["蔬菜盤", "植物肉", "素便當"],
+  "地中海料理": ["烤羊肉", "橄欖沙拉", "海鮮飯"],
+  "法式料理": ["可麗餅", "紅酒燉牛肉", "鵝肝醬"],
+  "西班牙料理": ["海鮮燉飯", "Tapas", "燒烤"],
+  "健康餐": ["低醣便當", "高蛋白雞胸", "沙拉"],
+  "甜點飲品": ["奶茶", "刨冰", "豆花"]
+};
+
+let menuLevel = 'main';
+let currentIndex = 0;
+let mainKeys = Object.keys(categories);
+let subKeys = [];
+let selectedCategory = "";
+
+function renderMenu(items) {
+  const menu = document.getElementById("menu");
+  menu.innerHTML = '';
+  items.forEach((item, index) => {
+    const div = document.createElement('div');
+    div.className = 'item' + (index === currentIndex ? ' active' : '');
+    div.innerText = item;
+    menu.appendChild(div);
+  });
+}
+
+function updateFocus(direction) {
+  const items = (menuLevel === 'main') ? mainKeys : subKeys;
+  const cols = 4;
+  const rows = Math.ceil(items.length / cols);
+  const x = currentIndex % cols;
+  const y = Math.floor(currentIndex / cols);
+
+  switch(direction) {
+    case 'LEFT': if (x > 0) currentIndex--; break;
+    case 'RIGHT': if (x < cols - 1) currentIndex++; break;
+    case 'UP': if (y > 0) currentIndex -= cols; break;
+    case 'DOWN': if (y < rows - 1) currentIndex += cols; break;
+  }
+
+  if (currentIndex < 0) currentIndex = 0;
+  if (currentIndex >= items.length) currentIndex = items.length - 1;
+  renderMenu(items);
+}
+
+function confirmSelection() {
+  if (menuLevel === 'main') {
+    selectedCategory = mainKeys[currentIndex];
+    subKeys = categories[selectedCategory];
+    currentIndex = 0;
+    menuLevel = 'sub';
+    document.getElementById("title").innerText = `請選擇 ${selectedCategory} 子分類`;
+    renderMenu(subKeys);
+  } else if (menuLevel === 'sub') {
+    const selectedSub = subKeys[currentIndex];
+    document.getElementById("selection").innerText = `你選擇的是：${selectedCategory} → ${selectedSub}`;
+    ws.send(JSON.stringify({ category: selectedCategory, sub: selectedSub }));
+  }
+}
+
+function rejectSelection() {
+  if (menuLevel === 'sub') {
+    menuLevel = 'main';
+    currentIndex = 0;
+    document.getElementById("title").innerText = `選擇你想要的料理`;
+    document.getElementById("suggestion").innerText = '';
+    document.getElementById("selection").innerText = '';
+    renderMenu(mainKeys);
+  } else {
+    document.getElementById("selection").innerText = `請重新選擇`;
+  }
+}
+
+let ws = new WebSocket("ws://localhost:8000/ws");
+
+ws.onopen = () => {
+  console.log("✅ WebSocket 連線成功！");
+};
+
+ws.onerror = (error) => {
+  console.error("❌ WebSocket 錯誤：", error);
+};
+
+ws.onmessage = (event) => {
+  const command = event.data;
+  console.log("💬 收到指令：", command);
+  if (["UP", "DOWN", "LEFT", "RIGHT"].includes(command)) {
+    updateFocus(command);
+  } else if (command === 'CONFIRM') {
+    confirmSelection();
+  } else if (command === 'REJECT') {
+    rejectSelection();
+  } else {
+    document.getElementById("suggestion").innerText = command;
+  }
+};
+
+renderMenu(mainKeys);
+});
+</script>
+</body>
+</html>
